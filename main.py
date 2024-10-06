@@ -1,6 +1,7 @@
 import pandas as pd
 from fastapi import FastAPI, HTTPException
 import numpy as np
+import httpx
 
 app = FastAPI()
 
@@ -295,4 +296,48 @@ async def get_intersection_of_diameter_and_habitability(d_min_metros: float):
     raise HTTPException(status_code=404, detail="No exoplanets found that meet both diameter and habitability conditions.")
 
   data = [{"n": len(intersected_df)}, intersected_df.to_dict(orient='records')]
+  return data
+
+# sorted exoplanets with a diameter mininum less than d_min based on db_field
+@app.get("/exoplanets/diameter/{d_min}/sort_by/{db_field}")
+async def get_exoplanets_sorted_by_field(d_min: float, db_field: str):
+  endpoint_map = {
+    "esi": "P_ESI",
+    "masse": "pl_bmasse",
+    "radius": "pl_rade",
+    "habitability": "P_HABITABLE",
+    "distance": "S_DISTANCE",
+    "size": "size_avg"
+  }
+
+  if db_field not in endpoint_map:
+    raise HTTPException(status_code=400, detail=f"The field '{db_field}' is not supported.")
+
+  async with httpx.AsyncClient() as client:
+    diameter_response = await client.get(f"http://127.0.0.1:8000/exoplanets/diameter/{d_min}")
+    if diameter_response.status_code != 200:
+      raise HTTPException(status_code=diameter_response.status_code, detail="Error fetching diameter data.")
+
+    field = endpoint_map[db_field]
+    other_response = await client.get(f"http://127.0.0.1:8000/exoplanets/{db_field}")
+    if other_response.status_code != 200:
+      raise HTTPException(status_code=other_response.status_code, detail=f"Error fetching {db_field} data.")
+
+  diameter_data = diameter_response.json()
+  other_data = other_response.json()
+
+  diameter_planets = pd.DataFrame(diameter_data[1])
+  other_planets = pd.DataFrame(other_data[1])
+
+  intersected_df = pd.merge(diameter_planets, other_planets, on='pl_name')
+
+  if intersected_df.empty:
+    raise HTTPException(status_code=404, detail="No exoplanets found that meet both diameter and other condition.")
+
+  if field in intersected_df.columns:
+    intersected_df = intersected_df.sort_values(by=field, ascending=False)
+  else:
+    raise HTTPException(status_code=400, detail=f"Field '{db_field}' is not present in the intersected dataset.")
+
+  data = [{"n": intersected_df.shape[0]}, intersected_df.to_dict(orient='records')]
   return data
