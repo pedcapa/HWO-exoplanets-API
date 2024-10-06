@@ -41,3 +41,15 @@ async def get_n_exoplanets_esi(n: int):
   data = [{"n": len(top_n_df)}, top_n_df.to_dict(orient='records')]
   return data
 
+# show all the fields from a specific exoplanet
+@app.get("/exoplanets/name/{exoplanet_name}")
+async def get_exoplanet_by_name(exoplanet_name: str):
+  exoplanet_name_lower = exoplanet_name.lower()
+  filtered_df = df[df['pl_name'].str.lower() == exoplanet_name_lower]
+
+  if filtered_df.empty:
+    raise HTTPException(status_code=404, detail=f"Exoplanet '{exoplanet_name}' not found.")
+
+  data = filtered_df.to_dict(orient='records')
+  return data
+
