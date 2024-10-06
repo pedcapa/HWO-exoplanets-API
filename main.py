@@ -22,7 +22,7 @@ async def get_exoplanets_esi():
   filtered_df = df[['pl_name', 'P_ESI']].dropna(subset=['P_ESI'])
   if filtered_df.empty:
     raise HTTPException(status_code=404, detail="No exoplanets with a valid 'P_ESI' value were found.")
-  data = [{"n": len(filtered_df)}, filtered_df.sort_values(by='P_ESI', ascending=False).to_dict(orient='records')]
+  data = [{"n": filtered_df.shape[0]}, filtered_df.sort_values(by='P_ESI', ascending=False).to_dict(orient='records')]
   return data
 
 # show n exoplanets sorted by ESI -> descending order
@@ -38,7 +38,7 @@ async def get_n_exoplanets_esi(n: int):
   if top_n_df.empty:
     raise HTTPException(status_code=404, detail="No exoplanets with valid P_ESI values found.")
 
-  data = [{"n": len(top_n_df)}, top_n_df.to_dict(orient='records')]
+  data = [{"n": top_n_df.shape[0]}, top_n_df.to_dict(orient='records')]
   return data
 
 # show all the fields from a specific exoplanet
@@ -51,5 +51,22 @@ async def get_exoplanet_by_name(exoplanet_name: str):
     raise HTTPException(status_code=404, detail=f"Exoplanet '{exoplanet_name}' not found.")
 
   data = filtered_df.to_dict(orient='records')
+  return data
+
+# show all the planets that can be seen with a specific diameter
+@app.get("/exoplanets/diameter/{d_min_metros}")
+async def get_exoplanets_by_diameter(d_min_metros: float):
+  if 'D_min_metros' not in df.columns:
+    raise HTTPException(status_code=400, detail="Column 'D_min_metros' does not exist in the dataset.")
+
+  filtered_df = df[['pl_name', 'D_min_metros']].dropna(subset=['D_min_metros'])
+  filtered_df = filtered_df[filtered_df['D_min_metros'] < d_min_metros]
+
+  if filtered_df.empty:
+    raise HTTPException(status_code=404, detail="No exoplanets found with D_min_metros less than the specified value.")
+
+  sorted_df = filtered_df.sort_values(by='D_min_metros', ascending=False)
+
+  data = [{"n": sorted_df.shape[0]}, sorted_df[['pl_name', 'D_min_metros']].to_dict(orient='records')]
   return data
 
