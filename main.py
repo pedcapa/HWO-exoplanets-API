@@ -90,7 +90,7 @@ async def get_n_exoplanets_by_diameter(d_min_metros: float, n: int):
   data = [{"n": sorted_df.shape[0]}, sorted_df[['pl_name', 'D_min_metros']].head(n).to_dict(orient='records')]
   return data
 
-# show all the planets that are potentially habitable
+# show all the exoplanets that are potentially habitable
 @app.get("/exoplanets/habitability")
 async def get_exoplanets_by_habitability():
   if 'P_HABITABLE' not in df.columns:
@@ -106,3 +106,23 @@ async def get_exoplanets_by_habitability():
 
   data = [{"n": sorted_df.shape[0]}, sorted_df[['pl_name', 'P_HABITABLE']].to_dict(orient='records')]
   return data
+
+# show N exoplanets that are potentially habitable
+@app.get("/exoplanets/habitability/{n_hab}")
+async def get_n_exoplanets_by_habitability(n_hab: int):
+  if n_hab <= 0:
+    raise HTTPException(status_code=400, detail="The number of exoplanets (n) must be greater than zero.")
+  
+  if 'P_HABITABLE' not in df.columns:
+    raise HTTPException(status_code=400, detail="Column 'P_HABITABLE")
+  
+  filtered_df = df[['pl_name', 'P_HABITABLE']].dropna(subset=['P_HABITABLE']).sort_values(by='P_HABITABLE', ascending=False)
+
+  top_n_df = filtered_df.head(n_hab)
+
+  if top_n_df.empty:
+    raise HTTPException(status_code=404, detail="No exoplanets with valid P_HABITABLE values found.")
+
+  data = [{"n": top_n_df.shape[0]}, top_n_df.to_dict(orient='records')]
+  return data
+
