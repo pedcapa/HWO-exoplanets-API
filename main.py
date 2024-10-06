@@ -279,3 +279,20 @@ async def get_top_exoplanets_by_size(n_size: int):
 
   data = top_n_df[['pl_name', 'pl_rade', 'pl_bmasse', 'pl_density', 'size_avg']].to_dict(orient='records')
   return data
+
+# show all the intersections between exoplanets based on HWO diameter and how habitable the planet is
+@app.get("/exoplanets/diameter_and_habitable/{d_min_metros}")
+async def get_intersection_of_diameter_and_habitability(d_min_metros: float):
+  diameter_data = await get_exoplanets_by_diameter(d_min_metros)
+  habitability_data = await get_exoplanets_by_habitability()
+
+  diameter_planets = pd.DataFrame(diameter_data[1])
+  habitability_planets = pd.DataFrame(habitability_data[1])
+
+  intersected_df = pd.merge(diameter_planets, habitability_planets, on='pl_name')
+
+  if intersected_df.empty:
+    raise HTTPException(status_code=404, detail="No exoplanets found that meet both diameter and habitability conditions.")
+
+  data = [{"n": len(intersected_df)}, intersected_df.to_dict(orient='records')]
+  return data
