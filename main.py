@@ -126,7 +126,7 @@ async def get_n_exoplanets_by_habitability(n_hab: int):
   data = [{"n": top_n_df.shape[0]}, top_n_df.to_dict(orient='records')]
   return data
 
-# show all the exoplanets sort by radius (earth radius coeficient) -> ascending order
+# show all the exoplanets sorted by radius (earth radius coeficient) -> ascending order
 @app.get("/exoplanets/radius")
 async def get_exoplanets_by_radius():
   if 'pl_rade' not in df.columns:
@@ -138,6 +138,28 @@ async def get_exoplanets_by_radius():
   sorted_df = filtered_df.sort_values(by='pl_density')
 
   top_n_df = sorted_df.sort_values(by='pl_density', ascending=True)
+
+  if top_n_df.empty:
+    raise HTTPException(status_code=404, detail="No exoplanets with valid pl_rade values found.")
+
+  data = [{"n": top_n_df.shape[0]}, top_n_df[['pl_name', 'pl_rade', 'pl_density']].to_dict(orient='records')]
+  return data
+
+# show N exoplanets sorted by its radius -> ascending order
+@app.get("/exoplanets/radius/{n_rad}")
+async def get_top_exoplanets_by_radius(n_rad: int):
+  if n_rad <= 0:
+    raise HTTPException(status_code=400, detail="The number of exoplanets (n) must be greater than zero.")
+
+  if 'pl_rade' not in df.columns:
+    raise HTTPException(status_code=400, detail="Column 'pl_rade' does not exist in the dataset.")
+
+  filtered_df = df[['pl_name', 'pl_rade']].dropna(subset=['pl_rade'])
+  filtered_df['pl_density'] = abs(filtered_df['pl_rade'] - 1)
+
+  sorted_df = filtered_df.sort_values(by='pl_density')
+
+  top_n_df = sorted_df.head(n_rad).sort_values(by='pl_density', ascending=True)
 
   if top_n_df.empty:
     raise HTTPException(status_code=404, detail="No exoplanets with valid pl_rade values found.")
