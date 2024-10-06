@@ -167,3 +167,12 @@ async def get_top_exoplanets_by_radius(n_rad: int):
   data = [{"n": top_n_df.shape[0]}, top_n_df[['pl_name', 'pl_rade', 'pl_density']].to_dict(orient='records')]
   return data
 
+# show all the exoplanets sorted by the distance from its system to earth in parsecs
+@app.get("/exoplanets/distance")
+async def get_exoplanets_by_distance():
+  filtered_df = df[['pl_name', 'S_DISTANCE']].dropna(subset=['S_DISTANCE'])
+  if filtered_df.empty:
+    raise HTTPException(status_code=404, detail="No exoplanets with a valid 'S_DISTANCE' value were found.")
+  data = [{"n": filtered_df.shape[0]}, filtered_df.sort_values(by='S_DISTANCE').to_dict(orient='records')]
+  return data
+
