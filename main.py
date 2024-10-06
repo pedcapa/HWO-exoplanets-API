@@ -176,3 +176,22 @@ async def get_exoplanets_by_distance():
   data = [{"n": filtered_df.shape[0]}, filtered_df.sort_values(by='S_DISTANCE').to_dict(orient='records')]
   return data
 
+# show N exoplanets sorted by the distance from its system to earth in parsecs
+@app.get("/exoplanets/distance/{n_distance}")
+async def get_top_exoplanets_by_distance(n_distance: int):
+  if n_distance <= 0:
+    raise HTTPException(status_code=400, detail="The number of exoplanets (n) must be greater than zero.")
+
+  if 'S_DISTANCE' not in df.columns:
+    raise HTTPException(status_code=400, detail="Column 'S_DISTANCE' does not exist in the dataset.")
+
+  filtered_df = df[['pl_name', 'S_DISTANCE']].dropna(subset=['S_DISTANCE']).sort_values(by='S_DISTANCE', ascending=True)
+
+  top_n_df = filtered_df.head(n_distance)
+
+  if top_n_df.empty:
+    raise HTTPException(status_code=404, detail="No exoplanets with valid S_DISTANCE values found.")
+
+  data = [{"n": top_n_df.shape[0]}, top_n_df.to_dict(orient='records')]
+  return data
+
