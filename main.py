@@ -53,7 +53,7 @@ async def get_exoplanet_by_name(exoplanet_name: str):
   data = filtered_df.to_dict(orient='records')
   return data
 
-# show all the planets that can be seen with a specific diameter
+# show all the exoplanets that can be seen with a specific diameter
 @app.get("/exoplanets/diameter/{d_min_metros}")
 async def get_exoplanets_by_diameter(d_min_metros: float):
   if 'D_min_metros' not in df.columns:
@@ -68,5 +68,25 @@ async def get_exoplanets_by_diameter(d_min_metros: float):
   sorted_df = filtered_df.sort_values(by='D_min_metros', ascending=False)
 
   data = [{"n": sorted_df.shape[0]}, sorted_df[['pl_name', 'D_min_metros']].to_dict(orient='records')]
+  return data
+
+# show N exoplanets that can be seen with a specific diameter
+@app.get("/exoplanets/diameter/{d_min_metros}/{n}")
+async def get_n_exoplanets_by_diameter(d_min_metros: float, n: int):
+  if n <= 0:
+    return None
+  
+  if 'D_min_metros' not in df.columns:
+    raise HTTPException(status_code=400, detail="Column 'D_min_metros' does not exist in the dataset.")
+
+  filtered_df = df[['pl_name', 'D_min_metros']].dropna(subset=['D_min_metros'])
+  filtered_df = filtered_df[filtered_df['D_min_metros'] < d_min_metros]
+
+  if filtered_df.empty:
+    raise HTTPException(status_code=404, detail="No exoplanets found with D_min_metros less than the specified value.")
+
+  sorted_df = filtered_df.sort_values(by='D_min_metros', ascending=False)
+
+  data = [{"n": sorted_df.shape[0]}, sorted_df[['pl_name', 'D_min_metros']].head(n).to_dict(orient='records')]
   return data
 
