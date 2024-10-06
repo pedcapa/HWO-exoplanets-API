@@ -1,9 +1,23 @@
 import pandas as pd
 from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
 import numpy as np
 import httpx
+import os
 
 app = FastAPI()
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+os.makedirs("static/images", exist_ok=True)
+
+# show images by name
+@app.get("/images/{image_name}")
+async def get_image(image_name: str):
+    file_path = f"static/images/{image_name}"
+    if not os.path.exists(file_path):
+        return {"error": "Image not found"}
+    return {"url": f"/static/images/{image_name}"}
 
 try:
   df = pd.read_csv('./src/all_exo.csv', comment='#', sep=',')
