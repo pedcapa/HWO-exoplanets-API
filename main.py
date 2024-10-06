@@ -126,7 +126,7 @@ async def get_n_exoplanets_by_habitability(n_hab: int):
   data = [{"n": top_n_df.shape[0]}, top_n_df.to_dict(orient='records')]
   return data
 
-# show all the exoplanets sorted by radius (earth radius coeficient) -> ascending order
+# show all the exoplanets sorted by radius (Earth radius coeficient) -> ascending order
 @app.get("/exoplanets/radius")
 async def get_exoplanets_by_radius():
   if 'pl_rade' not in df.columns:
@@ -195,7 +195,7 @@ async def get_top_exoplanets_by_distance(n_distance: int):
   data = [{"n": top_n_df.shape[0]}, top_n_df.to_dict(orient='records')]
   return data
 
-# show all the exoplanets sorted by its mass (earth mass coeficient) -> ascending order
+# show all the exoplanets sorted by its mass (Earth mass coeficient) -> ascending order
 @app.get("/exoplanets/masse")
 async def get_exoplanets_by_masse():
   if 'pl_bmasse' not in df.columns:
@@ -232,4 +232,50 @@ async def get_top_exoplanets_by_bmasse(n_masse: int):
     raise HTTPException(status_code=404, detail="No exoplanets with valid pl_bmasse values found.")
 
   data = [{"n": top_n_df.shape[0]}, top_n_df[['pl_name', 'pl_bmasse', 'pl_density']].to_dict(orient='records')]
+  return data
+
+# show all the exoplanets sorted by how size similar are compare with the Earth
+@app.get("/exoplanets/size")
+async def get_exoplanets_by_size():
+  if 'pl_rade' not in df.columns or 'pl_bmasse' not in df.columns:
+    raise HTTPException(status_code=400, detail="Columns 'pl_rade' or 'pl_bmasse' do not exist in the dataset.")
+
+  filtered_df = df[['pl_name', 'pl_rade', 'pl_bmasse']].dropna(subset=['pl_rade', 'pl_bmasse'])
+
+  filtered_df['size_avg'] = (filtered_df['pl_rade'] + filtered_df['pl_bmasse']) / 2 
+
+  filtered_df['pl_density'] = abs((filtered_df['pl_rade'] + filtered_df['pl_bmasse']) / 2 - 1)
+
+  sorted_df = filtered_df.sort_values(by='pl_density', ascending=True)
+
+  if sorted_df.empty:
+    raise HTTPException(status_code=404, detail="No exoplanets with valid 'pl_rade' and 'pl_bmasse' values found.")
+
+  data = [{"n": sorted_df.shape[0]}, sorted_df[['pl_name', 'pl_rade', 'pl_bmasse', 'size_avg', 'pl_density']].to_dict(orient='records')]
+  return data
+
+# show N exoplanets sorted by its size (Earth coeficient)
+@app.get("/exoplanets/size/{n_size}")
+async def get_top_exoplanets_by_size(n_size: int):
+  if n_size <= 0:
+    raise HTTPException(status_code=400, detail="The number of exoplanets (n) must be greater than zero.")
+
+  if 'pl_rade' not in df.columns or 'pl_bmasse' not in df.columns:
+    raise HTTPException(status_code=400, detail="Columns 'pl_rade' or 'pl_bmasse' do not exist in the dataset.")
+
+  filtered_df = df[['pl_name', 'pl_rade', 'pl_bmasse']].dropna(subset=['pl_rade', 'pl_bmasse'])
+
+  filtered_df['size_avg'] = (filtered_df['pl_rade'] + filtered_df['pl_bmasse']) / 2
+
+  filtered_df['pl_density'] = abs((filtered_df['pl_rade'] + filtered_df['pl_bmasse']) / 2 - 1)
+
+  filtered_df['distance_from_1'] = abs(filtered_df['size_avg'] - 1)
+  sorted_df = filtered_df.sort_values(by=['distance_from_1', 'size_avg'], ascending=[True, False])
+
+  top_n_df = sorted_df.head(n_size)
+
+  if top_n_df.empty:
+    raise HTTPException(status_code=404, detail="No exoplanets with valid 'pl_rade' and 'pl_bmasse' values found.")
+
+  data = top_n_df[['pl_name', 'pl_rade', 'pl_bmasse', 'pl_density', 'size_avg']].to_dict(orient='records')
   return data
