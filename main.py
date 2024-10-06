@@ -2,6 +2,7 @@ import pandas as pd
 from fastapi import FastAPI, HTTPException
 import numpy as np
 import httpx
+from aiocache import cached
 
 app = FastAPI()
 
@@ -12,28 +13,36 @@ except FileNotFoundError:
 
 df = df.replace({np.nan: None})
 
+@cached(ttl=300)  # time to live (seconds)
+async def get_all_exoplanets_cached():
+  return [{"n": df.shape[0]}, df.to_dict(orient='records')]
+
 # show all the exoplanets with all the fields
 @app.get("/exoplanets/all")
 async def get_all_exoplanets():
-  return [{"n": df.shape[0]}, df.to_dict(orient='records')]
+  return await get_all_exoplanets_cached()
 
-# show all the exoplanets sorted by ESI -> descending order
-@app.get("/exoplanets/esi")
-async def get_exoplanets_esi():
+
+@cached(ttl=600) # time to live (seconds)
+async def get_exoplanets_esi_cached():
   filtered_df = df[['pl_name', 'P_ESI']].dropna(subset=['P_ESI'])
   if filtered_df.empty:
     raise HTTPException(status_code=404, detail="No exoplanets with a valid 'P_ESI' value were found.")
   data = [{"n": filtered_df.shape[0]}, filtered_df.sort_values(by='P_ESI', ascending=False).to_dict(orient='records')]
   return data
 
-# show n exoplanets sorted by ESI -> descending order
-@app.get("/exoplanets/esi/{n_esi}")
-async def get_n_exoplanets_esi(n: int):
+# show all the exoplanets sorted by ESI -> descending order
+@app.get("/exoplanets/esi")
+async def get_exoplanets_esi():
+  return get_exoplanets_esi_cached()
+
+
+@cached(ttl=300) # time to live (seconds)
+async def get_n_exoplanets_esi_cached(n: int):
   if n <= 0:
     raise HTTPException(status_code=400, details="The number of exoplanets (n) must be greater than zero.")
   
   filtered_df = df[['pl_name', 'P_ESI']].dropna(subset=['P_ESI']).sort_values(by='P_ESI', ascending=False)
-
   top_n_df = filtered_df.head(n)
 
   if top_n_df.empty:
@@ -42,9 +51,14 @@ async def get_n_exoplanets_esi(n: int):
   data = [{"n": top_n_df.shape[0]}, top_n_df.to_dict(orient='records')]
   return data
 
-# show all the fields from a specific exoplanet
-@app.get("/exoplanets/name/{exoplanet_name}")
-async def get_exoplanet_by_name(exoplanet_name: str):
+# show n exoplanets sorted by ESI -> descending order
+@app.get("/exoplanets/esi/{n_esi}")
+async def get_n_exoplanets_esi(n_esi: int):
+  return get_n_exoplanets_esi_cached(n_esi)
+
+
+@cached(ttl=300)
+async def get_exoplanet_by_name_cached(exoplanet_name: str):
   exoplanet_name_lower = exoplanet_name.lower()
   filtered_df = df[df['pl_name'].str.lower() == exoplanet_name_lower]
 
@@ -54,9 +68,14 @@ async def get_exoplanet_by_name(exoplanet_name: str):
   data = filtered_df.to_dict(orient='records')
   return data
 
-# show all the exoplanets that can be seen with a specific diameter
-@app.get("/exoplanets/diameter/{d_min_metros}")
-async def get_exoplanets_by_diameter(d_min_metros: float):
+# show all the fields from a specific exoplanet
+@app.get("/exoplanets/name/{exoplanet_name}")
+async def get_exoplanet_by_name(exoplanet_name: str):
+  return get_exoplanet_by_name_cached(exoplanet_name)
+
+
+@cached(ttl=300)
+async def get_exoplanets_by_diameter_cached(d_min_metros: float):
   if 'D_min_metros' not in df.columns:
     raise HTTPException(status_code=400, detail="Column 'D_min_metros' does not exist in the dataset.")
 
@@ -71,9 +90,14 @@ async def get_exoplanets_by_diameter(d_min_metros: float):
   data = [{"n": sorted_df.shape[0]}, sorted_df[['pl_name', 'D_min_metros']].to_dict(orient='records')]
   return data
 
-# show N exoplanets that can be seen with a specific diameter
-@app.get("/exoplanets/diameter/{d_min_metros}/{n}")
-async def get_n_exoplanets_by_diameter(d_min_metros: float, n: int):
+# show all the exoplanets that can be seen with a specific diameter
+@app.get("/exoplanets/diameter/{d_min_metros}")
+async def get_exoplanets_by_diameter(d_min_metros: float):
+  return get_exoplanets_by_diameter_cached(d_min_metros)
+
+
+@cached(ttl=300)
+async def get_n_exoplanets_by_diameter_cached(d_min_metros: float, n: int):
   if n <= 0:
     return None
   
@@ -90,6 +114,12 @@ async def get_n_exoplanets_by_diameter(d_min_metros: float, n: int):
 
   data = [{"n": sorted_df.shape[0]}, sorted_df[['pl_name', 'D_min_metros']].head(n).to_dict(orient='records')]
   return data
+
+# show N exoplanets that can be seen with a specific diameter
+@app.get("/exoplanets/diameter/{d_min_metros}/{n}")
+async def get_n_exoplanets_by_diameter(d_min_metros: float, n: int):
+  return get_n_exoplanets_by_diameter_cached(d_min_metros, n)
+
 
 # show all the exoplanets that are potentially habitable
 @app.get("/exoplanets/habitability")
