@@ -209,5 +209,27 @@ async def get_exoplanets_by_masse():
   if top_n_df.empty:
     raise HTTPException(status_code=404, detail="No exoplanets with valid pl_bmasse values found.")
 
-  data = [{"n": len(top_n_df)}, top_n_df[['pl_name', 'pl_bmasse', 'pl_density']].to_dict(orient='records')]
+  data = [{"n": top_n_df.shape[0]}, top_n_df[['pl_name', 'pl_bmasse', 'pl_density']].to_dict(orient='records')]
+  return data
+
+# show N exoplanets sorted by its mass
+@app.get("/exoplanets/masse/{n_masse}")
+async def get_top_exoplanets_by_bmasse(n_masse: int):
+  if n_masse <= 0:
+    raise HTTPException(status_code=400, detail="The number of exoplanets (n) must be greater than zero.")
+
+  if 'pl_bmasse' not in df.columns:
+    raise HTTPException(status_code=400, detail="Column 'pl_bmasse' does not exist in the dataset.")
+
+  filtered_df = df[['pl_name', 'pl_bmasse']].dropna(subset=['pl_bmasse'])
+  filtered_df['pl_density'] = abs(filtered_df['pl_bmasse'] - 1)
+
+  sorted_df = filtered_df.sort_values(by='pl_density')
+
+  top_n_df = sorted_df.head(n_masse).sort_values(by='pl_density', ascending=True)
+
+  if top_n_df.empty:
+    raise HTTPException(status_code=404, detail="No exoplanets with valid pl_bmasse values found.")
+
+  data = [{"n": top_n_df.shape[0]}, top_n_df[['pl_name', 'pl_bmasse', 'pl_density']].to_dict(orient='records')]
   return data
